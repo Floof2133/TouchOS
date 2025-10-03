@@ -36,7 +36,7 @@ TouchOS is an ambitious (questionable) journey to build a complete operating sys
 ## Current Features
 
 1. **Bootloader** - It boots! Sometimes. Probably. 
-   - Displays text on screen?
+   **Half Built Kernal** - It might Not work
 
 ## How to Build
 **BUILDING THE SYSTEM DOES NOT EXIST YET! I AM STILL WORKING ON THE KERNEL, AND I WILL MAKE AN INSTALLABLE .IMG AT SOMR POINT!**
