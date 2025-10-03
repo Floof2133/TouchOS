@@ -78,7 +78,7 @@ Because. Idk? I can
 Also because:
 - I hate myself
 - I hate myself
-- We wanted to truly understand what "segmentation fault" means
+- I wanted to truly understand what "segmentation fault" means
 - Touch interfaces need more love
 - Why not?
 
@@ -97,7 +97,7 @@ Also because:
 ## Contact
 
 Found a bug? That's probably a feature.
-Want to help? We need therapy.
+Want to help? I need therapy.
 Have questions? So do I.
 
 ---
