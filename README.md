@@ -17,7 +17,8 @@ Coming soon™:
 
 ## What Even Is This?
 
-TouchOS is an ambitious (questionable) journey to build a complete operating system from scratch that runs on real x86_64 hardware. Why? Why Not!
+TouchOS is an ambitious (questionable) journey to build a complete operating system from scratch that runs on real x86_64 hardware. Everything from the kernel, to the drivers, graphics stack, Window manager and even some apps, will be made by me from scratch.
+Why? Why Not!
 
 ### The Vision™
 

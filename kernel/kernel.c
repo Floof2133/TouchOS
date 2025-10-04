@@ -30,7 +30,8 @@ void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 	uint8_t* current = (uint8_t*)memory_map;
 	uint8_t* end = current + map_size;
 
-	uint8_t highest_address = 0;
+	uint64_t highest_address = 0;
+	//previously it was uint8_t, you kernel would have thought that the maximum usable adress is somewhere between 255 bytes, which the PMN would break OwO -Xansi
 
 	while (current < end) {
 		EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)current;
@@ -58,7 +59,7 @@ void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 
 		if (desc->Type == EfiConventionalMemory && desc->NumberOfPages * 4096 >= pmm.bitmap_size) {
 			pmm.bitmap = (uint64_t*)desc->PhysicalStart;
-			memset(pmm.bitmap, 0xFF, pmm.bitmap_size) // Marks all (condoms ;3) as used initially
+			memset(pmm.bitmap, 0xFF, pmm.bitmap_size); // Marks all (condoms ;3) as used initially > you forgot a semicolon :3 -Xansi
 			break;
 		}
 		current += descriptor_size;
@@ -70,7 +71,7 @@ void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 		EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)current;
 
 		if (desc->Type == EfiConventionalMemory){
-			for (uint64_t i =0; 1 < desc->NumberOfPages; i++){
+			for (uint64_t i =0; i < desc->NumberOfPages; i++){ //assuming this was not intended. set the for loop to i and not "1" this would basically just make it go forever if not changed:P
 				uint64_t page = (desc->PhysicalStart / 4096) + i;
 				pmm.bitmap[page / 64] &= ~(1ULL << (page % 64));
 			}
@@ -85,7 +86,7 @@ void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 void* pmm_alloc_page(void) {
 	spin_lock(&pmm.lock);
 
-	for (uint64_t i = 0; 1 < pmm.bitmap_size * 8; i++) {
+	for (uint64_t i = 0; i < pmm.bitmap_size * 8; i++) { //same here with a logic issue!
 		uint64_t byte = i / 64;
 		uint64_t bit = i % 64;
 
@@ -93,7 +94,7 @@ void* pmm_alloc_page(void) {
 			pmm.bitmap[byte] |= (1ULL << bit);
 			pmm.free_memory -= 4096;
 			spin_unlock(&pmm.lock);
-			returm (void*)(i * 4096);
+			return (void*)(i * 4096); //fixed typo XD
 		}
 	}
 	spin_unlock(&pmm.lock);
