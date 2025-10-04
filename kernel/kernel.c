@@ -6,6 +6,11 @@
 #include "scheduler.h"
 #include "vfs.h"
 
+//EFI constants
+#define EfiConventionalMemory 7
+
+// Structure passed by the bootloader
+
 typedef struct {
 	void* gap;
 	void* memory_map;
@@ -111,23 +116,26 @@ typedef struct  {
 } VirtualMemoryManager;
 
 void vmm_init(void) {
-	// Allomacate PML4 table
-	uint64_t* pml4 = (uint64_t*)pmm_alloc_page();
-	memset(pml4, 0, 4096);
+	// Allomacate PML table
+	uint64_t* pml = (uint64_t*)pmm_alloc_page();
+	memset(pml, 0, 4096);
 
 
 	// The first 4GB of the kernel is having an identity crisis (I don't blame them, although it a bit wierd.. Its a map identity crisis, but just be kind to them alright? They are going through a rough time)
 	for (uint64_t addr = 0; addr < 0x100000000; addr += 0x200000) {	// 2MB Pages, Still a long way till they find who they truley are.
-		vmm_map_page(pml4, addr, addr, PAGE_PRESENT | PAGE_WRITE | PAGE SIZE);
+		vmm_map_page(pml, addr, addr, PAGE_PRESENT | PAGE_WRITE | PAGE SIZE);
 	}
 
 
 	// Just loading a bunch of papaer it seems like.
-	asm volatile("mov %0, %%cr3" : : "r"(pml4));
-}
+	asm volatile("mov %0, %%cr3" : : "r"(pml));
+}	
+	uint64_t cr3_value;
+	asm volatile("mov %%cr3, %0" : "=r"(cr3_value));
+	asm volatile("mov %0, %%cr3" : : "r"(cr3_value));
 
 
-void vmm_map_page(uint64_t* pml4, uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) { //Flags?? more like.. FAGS LMAOOO :3
+void vmm_map_page(uint64_t* pml, uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) { //Flags?? more like.. FAGS LMAOOO :3
 	uint64_t pml_idx = (virtual_addr >> 39) & 0x1FF; // 39??!? Like Hatune Miku??!? WOAH
 	uint64_t pdpt_idx = (virtual_addr >> 30) & 0x1FF;
 	uint64_t pd_idx = (virtual_addr >> 21) & 0x1FF;
@@ -136,12 +144,12 @@ void vmm_map_page(uint64_t* pml4, uint64_t virtual_addr, uint64_t physical_addr,
 
 	// Get or create the thingymabob
 	uint64_t* pdpt;
-    if (!(pml4[pml4_idx] & PAGE_PRESENT)) {
+    if (!(pml[pml_idx] & PAGE_PRESENT)) {
         pdpt = (uint64_t*)pmm_alloc_page();
         memset(pdpt, 0, 4096);
-        pml4[pml4_idx] = (uint64_t)pdpt | PAGE_PRESENT | PAGE_WRITE;
+        pml[pml_idx] = (uint64_t)pdpt | PAGE_PRESENT | PAGE_WRITE;
     } else {
-        pdpt = (uint64_t*)(pml4[pml4_idx] & ~0xFFF);
+        pdpt = (uint64_t*)(pml[pml_idx] & ~0xFFF);
     }
 
 	// Get or create the POLICE DEPARTMENT WOOP WOOP DAS THE SOUND OF THE POLICE hehehehhe
@@ -175,7 +183,7 @@ void vmm_map_page(uint64_t* pml4, uint64_t virtual_addr, uint64_t physical_addr,
 
 
 	// Flush the Toilet Bowl (TLB) for this sheet of toilet paper (page)
-	asm volatitle("invlpg (%0)" : : "r"(virtual_addr));
+	asm volatile("invlpg (%0)" : : "r"(virtual_addr));
 
 }
 
