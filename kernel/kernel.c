@@ -138,6 +138,7 @@ void vmm_map_page(uint64_t* pml4, uint64_t virtual_addr, uint64_t physical_addr,
 	if (!(pml4[pml4] & PAGE_PRESENT)) {
 		pd = (uint64_t*)pmm_alloc_page();
 		memset(pd, 0, 4096);
+		pml4[pml4_]
 	}
 }
 
