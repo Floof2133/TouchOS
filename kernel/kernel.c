@@ -136,11 +136,85 @@ void vmm_map_page(uint64_t* pml4, uint64_t virtual_addr, uint64_t physical_addr,
 
 	// Get or create the thingymabob
 	uint64_t* pdpt;
-	if (!(pml4[pml4] & PAGE_PRESENT)) {
-		pd = (uint64_t*)pmm_alloc_page();
-		memset(pd, 0, 4096);
-		pml4[pml4_]
+    if (!(pml4[pml4_idx] & PAGE_PRESENT)) {
+        pdpt = (uint64_t*)pmm_alloc_page();
+        memset(pdpt, 0, 4096);
+        pml4[pml4_idx] = (uint64_t)pdpt | PAGE_PRESENT | PAGE_WRITE;
+    } else {
+        pdpt = (uint64_t*)(pml4[pml4_idx] & ~0xFFF);
+    }
+
+	// Get or create the POLICE DEPARTMENT WOOP WOOP DAS THE SOUND OF THE POLICE hehehehhe
+	uint64_t* pd;
+    	if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) {
+        	pd = (uint64_t*)pmm_alloc_page();
+        	memset(pd, 0, 4096);
+       	 	pdpt[pdpt_idx] = (uint64_t)pd | PAGE_PRESENT | PAGE_WRITE;
+    	} else {
+        	pd = (uint64_t*)(pdpt[pdpt_idx] & ~0xFFF);
+    	}
+
+
+	// Hanleing just a little amout of papaer, roughly 2mb
+	if (flags & PAGE_SIZE) {
+        	pd[pd_idx] = physical_addr | flags;
+	} else {
+		// Pee in some Tea!!  (PT)
+		uint64_t* pt;
+        	if (!(pd[pd_idx] & PAGE_PRESENT)) {
+            		pt = (uint64_t*)pmm_alloc_page();
+            		memset(pt, 0, 4096);
+            		pd[pd_idx] = (uint64_t)pt | PAGE_PRESENT | PAGE_WRITE;
+        	} else {
+            		pt = (uint64_t*)(pd[pd_idx] & ~0xFFF);
+        	}
+
+		// Map out the seven seas, well the four seas. Map 4KP page...
+		pt[pt_idx] = physical_addr | flags;
 	}
+
+
+	// Flush the Toilet Bowl (TLB) for this sheet of toilet paper (page)
+	asm volatitle("invlpg (%0)" : : "r"(virtual_addr));
+
 }
 
+void kernel_main(BootParams* params) {
+	// Initialise the physical memory manager. (I dont have anything funny for this 3:)
+	pmm_init(params->memory_map, params->memory_map_size, params->descriptor_size);
 
+	// Initialise Virtual memory
+	vmm_init();
+
+	// Set up GDT and IDT
+	gdt_init();
+	idt_init();
+
+	// Initialise  interrupt controller
+	pic_init();
+	apic_init();
+
+	// Init scheduler
+	scheduler_init();
+
+	// init Devce drivers
+	pci_scan();
+	usb_init();
+
+	// Init graphics
+	graphics_init(params->gop);
+
+	// Init filesystem
+	vfs_init();
+	initrd_load();
+
+	// Start firs user process
+	process_create("/sbin/init");
+
+	// Enable interuptions and start sceduling
+	sti();
+	scheduler_start();
+}
+
+// Kernel for TouchOS developed by - Lexii (Floof<3) and Xansi
+//Things may change in the near future (they probably will)
