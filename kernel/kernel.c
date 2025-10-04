@@ -6,8 +6,15 @@
 #include "scheduler.h"
 #include "vfs.h"
 
+#define PAGE_PRESENT    0x1 	//telling CPU that it exists on the page
+#define PAGE_WRITE      0x2		//without this kernel can't write anything it would be read only.
+#define PAGE_SIZE       0x80    // For 2MB pages
+
 //EFI constants
 #define EfiConventionalMemory 7
+
+
+//add the spinglock_t spin_lock() and spin_unlock() defs!
 
 // Structure passed by the bootloader
 
@@ -29,6 +36,30 @@ typedef struct {
 } PhysicalMemoryManager;
 
 static PhysicalMemoryManager pmm = {0};
+
+
+//added this into the kernel :P
+void kernel_panic(const char* message, uint32_t error_code) {
+    // Disable interrupts
+    asm volatile("cli");
+    
+    // TODO: Print error message to screen if you have graphics working
+    // For now, just halt with the error code in a register
+    
+    // Put error code in EAX for debugging.
+    asm volatile(
+        "mov %0, %%eax\n"
+        "hlt\n"
+        : 
+        : "r"(error_code)
+    );
+    
+    // Infinite halt loop in case of NMI or other interrupts
+    while(1) {
+        asm volatile("hlt");
+    }
+}
+//This is nessescary for kernel panic to work, if not it is happy go lucky and you have no idea what is going on.
 
 void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 	// Parse the parcel winner gets UEFi memorymap OwO
@@ -59,6 +90,15 @@ void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 
 	// Allimocatios the bitchmap
 	current = (uint8_t*)memory_map;
+
+	//I am going to add this as a check for if null is the type that is returned!
+	if (pmm.bitmap == NULL) {
+    // Handle error - maybe halt the system
+    // For now, you could just return or loop forever but imma add a panic
+		kernel_panic("PMM: Failed to allocate bitmap - no suitable memory region found", 0x01 //the last line is just a error code but we can add panic.c
+    while(1) { asm volatile("hlt"); }
+}
+	
 	while (current < end) {
 		EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)current;
 
@@ -91,7 +131,12 @@ void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
 void* pmm_alloc_page(void) {
 	spin_lock(&pmm.lock);
 
-	for (uint64_t i = 0; i < pmm.bitmap_size * 8; i++) { //same here with a logic issue!
+	
+//for (uint64_t i = 0; i < pmm.bitmap_size * 8; i++) { 		//same here with a logic issue! Edit: I am going to swap out the pager for a dif iteration
+															//this way it will use this because its cleaner.
+	uint64_t num_pages = pmm.total_memory / 4096;
+	for (uint64_t i = 0; i < num_pages; i++) {
+	
 		uint64_t byte = i / 64;
 		uint64_t bit = i % 64;
 
@@ -99,15 +144,12 @@ void* pmm_alloc_page(void) {
 			pmm.bitmap[byte] |= (1ULL << bit);
 			pmm.free_memory -= 4096;
 			spin_unlock(&pmm.lock);
-			return (void*)(i * 4096); //fixed typo XD
+			return (void*)(i * 4096); 						//fixed typo XD
 		}
 	}
 	spin_unlock(&pmm.lock);
 	return NULL;
 }
-
-
-
 
 
 // Virtual Memory Manager, if your too pussy to install on bare metal (even tho vm's have nothing to do with Virtual Memory Manager
@@ -123,16 +165,19 @@ void vmm_init(void) {
 
 	// The first 4GB of the kernel is having an identity crisis (I don't blame them, although it a bit wierd.. Its a map identity crisis, but just be kind to them alright? They are going through a rough time)
 	for (uint64_t addr = 0; addr < 0x100000000; addr += 0x200000) {	// 2MB Pages, Still a long way till they find who they truley are.
-		vmm_map_page(pml, addr, addr, PAGE_PRESENT | PAGE_WRITE | PAGE SIZE);
+		vmm_map_page(pml, addr, addr, PAGE_PRESENT | PAGE_WRITE | PAGE_SIZE); //was missing an underscore.
 	}
 
 
-	// Just loading a bunch of papaer it seems like.
+	// Just loading a bunch of papaer it seems like. > no its not, its a little harder than that.
 	asm volatile("mov %0, %%cr3" : : "r"(pml));
-}	
+	
 	uint64_t cr3_value;
 	asm volatile("mov %%cr3, %0" : "=r"(cr3_value));
 	asm volatile("mov %0, %%cr3" : : "r"(cr3_value));
+	//these last lines were outside of the function so i put them in for you. -Xansi
+
+}	
 
 
 void vmm_map_page(uint64_t* pml, uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) { //Flags?? more like.. FAGS LMAOOO :3
@@ -167,7 +212,7 @@ void vmm_map_page(uint64_t* pml, uint64_t virtual_addr, uint64_t physical_addr, 
 	if (flags & PAGE_SIZE) {
         	pd[pd_idx] = physical_addr | flags;
 	} else {
-		// Pee in some Tea!!  (PT)
+		// sister i can't stand reading your comments -Xansi
 		uint64_t* pt;
         	if (!(pd[pd_idx] & PAGE_PRESENT)) {
             		pt = (uint64_t*)pmm_alloc_page();
