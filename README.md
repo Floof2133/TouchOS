@@ -1,10 +1,13 @@
 # 🖐️ TouchOS
 
-> *"I'm going to touch you"*
+> *"An OS For The Masses (if the masses use primarily touchscreen monitors, specifically the Acer T230H)"*
 
-Welcome to **TouchOS** - the operating system that finally answers the age-old question: "Am I gay?"
+Welcome to **TouchOS** - the operating system that finally answers the age-old question: "Can i finally use my
+stripped down Dell Inspiron 13 7370 Laptop motherboard that I have put inside of my Acer T230H touchsceen
+monitor?
 
-Yes.
+And the answer is a resounding
+maybe.. I don't know
 
 ## Project Status: Bootloader My Beloved ❤️
 
@@ -27,17 +30,17 @@ Why? Why Not!
 - **Graphics Stack**: Pixels will appear on screen (probably)
 - **Window Manager**: Touch-friendly UI that assumes you have fingers
 - **On-screen Keyboard**: For when you inevitably break your physical keyboard from frustration
-- **Debian Package Support**: `.deb` files because we're fancy like that
+- **Custom Package Manager**: `.tpkg` files, because if ive already come this far, why not go further?
 
 ### Target Hardware
 
-- **Conputer Devobe**: Dell Inspiron 13 7370, No keyboard, No trackpad, No screen, No battery and No chassis. (just like how god intended)
+- **Computer**: Dell Inspiron 13 7370, No keyboard, No trackpad, No screen, No battery and No chassis. (just like how god intended)
 - **Display**: Acer T230H touchscreen (the chosen one)
 
 ## Current Features
 
-1. **Bootloader** - It boots! Sometimes. Probably. 
-   **Half Built Kernal** - It might Not work
+1. **Bootloader** - Untested 
+   **Kernel** - Untested
 
 ## How to Build
 **BUILDING THE SYSTEM DOES NOT EXIST YET! I AM STILL WORKING ON THE KERNEL, AND I WILL MAKE AN INSTALLABLE .IMG AT SOMR POINT!**
@@ -51,7 +54,8 @@ Why? Why Not!
 ## Documentation
 
 Documentation will be written once I figure out what I'm actually doing. Current documentation consists of:
-- Scattered comments in the bootloader
+- Scattered comments in the source code
+- My brain
 
 ## Contributing
 
@@ -70,7 +74,7 @@ This project is:
 ## License
 I cannot drive.
 
-TBD - probably something that says "use at your own risk and don't blame me when it deletes your homework"
+TBD - probably something that says "use at your own risk and don't blame me when it bricks your system"
 
 ## Why Though?
 
@@ -78,21 +82,21 @@ Because. Idk? I can
 
 Also because:
 - I hate myself
-- I hate myself
+- I wanna
 - I wanted to truly understand what "segmentation fault" means
 - Touch interfaces need more love
-- Why not?
+- I want something with ultimate customization and optimization for one specific system.
 
 ## 🗺️ Roadmap
 
 - [x] Bootloader that might boot, might not.
-- [ ] Kernel that kernels
-- [ ] Memory management (malloc or die)
-- [ ] USB driver (pray for us)
+- [x] Kernel that _does_ have a kernel panic feature.
+- [x] Memory management (maybe)
+- [x] USB driver (pray for us)
 - [ ] Graphics that aren't VGA text mode
 - [ ] Window manager with big, touchable buttons
-- [ ] Virtual keyboard (smash those on-screen keys)
-- [ ] Package manager that handles .deb files
+- [x] Virtual keyboard (smash those on-screen keys)
+- [ ] Package manager that handles .tpkg files
 - [ ] World domination (stretch goal)
 
 ## Contact
@@ -103,7 +107,7 @@ Have questions? So do I.
 
 ---
 
-*TouchOS - Making the impossible slightly less impossible, one segfault at a time.*
+*TouchOS - Making the impossible slightly less impossible, one touch at a time.*
 
 **Current Version**: 0.0.1-alpha-pre-alpha-barely-boots
 
