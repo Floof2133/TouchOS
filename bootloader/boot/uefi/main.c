@@ -15,7 +15,9 @@ EFI_STATUS load_kernel(EFI_HANDLE ImageHandle, KernelInfo* kernel_info) {
 
 	//  open da root filesystem :3
 	EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* fs;
-	status = uefi_call_wrapper(BS->HandleProtocol, 3, ImageHandle, &gEfiSimpleFileSystemProtocolGuid, &fs);
+	//status = uefi_call_wrapper(kernel_file->Read, 3, ImageHandle, &gEfiSimpleFileSystemProtocolGuid, &fs);		if it stops working its my fault.
+	status = uefi_call_wrapper(kernel_file->Read, 3, kernel_file, &size, &elf_header);
+	
 	if (EFI_ERROR(status)) return status;
 
 	status = uefi_call_wrapper(fs->OpenVolume, 2, fs, &root_fs);
@@ -26,9 +28,9 @@ EFI_STATUS load_kernel(EFI_HANDLE ImageHandle, KernelInfo* kernel_info) {
 	if (EFI_ERROR(STATUS)) return status;
 
 	// give the ELF some head ;3 and "load" the segments
-	Elf64_Ehdir elf_header;
+	Elf64_Ehdr elf_header; //there was supposed to be no i. -Xansi
 	UINTN size = sizeof(elf_header);
-	status = uefi_call_wrapper(kernel_file_Read, 3, kernel_file, &elf_header)
+	status = uefi_call_wrapper(kernel_file->Read, 3, kernel_file, &elf_header)
 
 	// MAKE SURE MR ELF HAS MAGIC
 	if  (memcmp(elf_header.e_ident, ELFMAG, SELFMAG) !=0){
@@ -38,7 +40,7 @@ EFI_STATUS load_kernel(EFI_HANDLE ImageHandle, KernelInfo* kernel_info) {
 	// Give the program "head"ers
 	Elf64_Phdr* phdrs;
 	size = elf_header.e_phnum * sizeof(Elf64_Phdr);
-	status = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, suze, &phdrs);
+	status = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, size, &phdrs);
 
 	uefi_call_wrapper(kernel_file->SetPosition, 2, kernel_file, elf_header.e_phoff);
 	uefi_call_wrapper(kernel_file->Read, 3, kernel_file, &size, phdrs);
@@ -72,7 +74,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
 
 	// LET THERE BE LIGHT! (Graphics mode.. Its 4am, give me a break)
 	EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
-	EFI_STATUS status = uefi_call_wrapper(BS->LocateProtocol, 3, &gEgiGraphicsOutputProtocolGuid, NULL, &gop);
+	EFI_STATUS status = uefi_call_wrapper(BS->LocateProtocol, 3, &gEfiGraphicsOutputProtocolGuid, NULL, &gop); //fixed typo
 
 	// Im the map, Im the map, Im the map, Im the map, IM THE (Memory) MAP!!!!
 	UINTN memory_map_size = 0;
