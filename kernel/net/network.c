@@ -118,7 +118,54 @@ void net_rx_packet(netif_t* netif, const void* data, size_t len) {
             // Handle IP packet
             if (len >= sizeof(eth_header_t) + sizeof(ip_header_t)) {
                 ip_header_t* ip = (ip_header_t*)eth->payload;
-                // TODO: Process IP packet
+
+                /*
+                What is happening is it will process everything inside this process here.
+                version_ihl packs version upper of four bits and header length 4 bits
+                you would need constants like this:
+
+                #define IP_PROTO_ICMP 1
+                #define IP_PROTO_TCP  6
+                #define IP_PROTO_UDP  17             
+                
+                we can add checksum verification later if you feel like it.
+                */
+
+if ((ip->version_ihl >> 4) != 4) {
+    // Not IPv4
+    return;
+}
+
+size_t ip_header_len = (ip->version_ihl & 0x0F) * 4;
+if (len < sizeof(eth_header_t) + ip_header_len) {
+    // Invalid header length
+    return;
+}
+
+// Optional: verify IP checksum (if you have a function for it floof i know you read my source code :3)
+// if (!ip_checksum_valid(ip)) return;
+
+uint8_t protocol = ip->protocol;
+void* payload = ((uint8_t*)ip) + ip_header_len;
+size_t payload_len = len - sizeof(eth_header_t) - ip_header_len;
+
+// Dispatch to protocol handler >:D
+switch (protocol) {
+    case IP_PROTO_ICMP:
+        handle_icmp_packet(netif, ip, payload, payload_len);
+        break;
+    case IP_PROTO_UDP:
+        handle_udp_packet(netif, ip, payload, payload_len);
+        break;
+    case IP_PROTO_TCP:
+        handle_tcp_packet(netif, ip, payload, payload_len);
+        break;
+    default:
+        // Unknown or unsupported protocol, which might be an issue later so i just left this like that :P
+        break;
+}
+                
+                
                 (void)ip;
             }
             break;
