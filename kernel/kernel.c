@@ -1,273 +1,201 @@
 // kernel/kernel.c
+// TouchOS Kernel - Main kernel code
+// Where all the magic (and bugs) happen
+//
+// Created by: floof<3
+// Special thanks to: XansiVA (github.com/XansiVA) for helping get this project started
+// You da real MVP
+
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
-#include "memory.h"
-#include "interrupts.h"
-#include "scheduler.h"
-#include "vfs.h"
+#include "../drivers/serial.h"  // For debug output (so we can actually see what's going on)
+#include "pmm.h"   // Physical memory manager
+#include "heap.h"  // Heap allocator (kmalloc/kfree)
 
-#define PAGE_PRESENT    0x1 	//telling CPU that it exists on the page
-#define PAGE_WRITE      0x2		//without this kernel can't write anything it would be read only.
-#define PAGE_SIZE       0x80    // For 2MB pages
+// Forward declarations for stub functions that aren't implemented yet
+// (We removed pmm_init, heap_init since those are now real)
+void gdt_init(void);
+void idt_init(void);
+void pic_init(void);
+void apic_init(void);
+void scheduler_init(void);
+void vmm_init(void);
+void vmm_map_page(uint64_t* pml, uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags);
+void pci_scan(void);
+void usb_init(void);
+void graphics_init(void* gop_ptr);
+void touch_init(void);
+void wm_init(void);
+void vfs_init(void);
+void pkg_init(void);
 
-//EFI constants
-#define EfiConventionalMemory 7
-
-
-//add the spinglock_t spin_lock() and spin_unlock() defs!
-
-// Structure passed by the bootloader
-
+// Boot parameters structure (what the bootloader gives us)
 typedef struct {
-	void* gap;
-	void* memory_map;
-	uint64_t memory_map_size;
-	uint64_t descriptor_size;
+    uint64_t memory_size;
+    void* gop;  // Graphics Output Protocol pointer (UEFI GOP) - basically the framebuffer
+    uint8_t gap[256];  // Reserved space (idk what this is for but it's here)
 } BootParams;
 
+// Memory management constants
+#define PAGE_SIZE 4096  // 4KB pages because that's what x86_64 uses
+#define PAGE_PRESENT (1 << 0)  // page is in memory
+#define PAGE_WRITE (1 << 1)  // page is writable
 
-// are you ready for your physical? memory manager
-typedef struct {
-	uint64_t total_memory;
-	uint64_t free_memory;
-	uint64_t* bitmap;
-	uint64_t bitmap_size;
-	spinlock_t lock;
-} PhysicalMemoryManager;
+// Global variables (yes I know globals are bad but this is a kernel so shut up)
+static uint64_t* kernel_pml4 = NULL;
+static uint64_t total_memory = 0;
 
-static PhysicalMemoryManager pmm = {0};
-
-
-//added this into the kernel :P
+// Kernel panic handler (oh shit moment)
 void kernel_panic(const char* message, uint32_t error_code) {
-    // Disable interrupts
-    asm volatile("cli");
+    // TODO: Display error message on screen
+    // For now, just halt the CPU and cry
+    (void)message;  // Suppress unused parameter warning (compiler is so annoying)
+    (void)error_code;
     
-    // TODO: Print error message to screen if you have graphics working
-    // For now, just halt with the error code in a register
-    
-    // Put error code in EAX for debugging.
-    asm volatile(
-        "mov %0, %%eax\n"
-        "hlt\n"
-        : 
-        : "r"(error_code)
-    );
-    
-    // Infinite halt loop in case of NMI or other interrupts
+    __asm__ volatile("cli; hlt");  // disable interrupts and halt
     while(1) {
-        asm volatile("hlt");
+        __asm__ volatile("hlt");  // stay halted forever lmao
     }
 }
-//This is nessescary for kernel panic to work, if not it is happy go lucky and you have no idea what is going on.
 
-void pmm_init(void* memory_map, uint64_t map_size, uint64_t descriptor_size) {
-	// Parse the parcel winner gets UEFi memorymap OwO
-	uint8_t* current = (uint8_t*)memory_map;
-	uint8_t* end = current + map_size;
-
-	uint64_t highest_address = 0;
-	//previously it was uint8_t, you kernel would have thought that the maximum usable adress is somewhere between 255 bytes, which the PMN would break OwO -Xansi
-
-	while (current < end) {
-		EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)current;
-
-		if (desc->Type == EfiConventionalMemory) {
-			pmm.free_memory += desc->NumberOfPages * 4096;
-		}
-
-		uint64_t top =  desc->PhysicalStart + (desc->NumberOfPages * 4096);
-		if (top > highest_address){
-			highest_address = top;
-		}
-
-		current += descriptor_size;
-	}
-
-
-	pmm.total_memory = highest_address;
-	pmm.bitmap_size = (highest_address / 4096/ 8) + 1;
-
-	// Allimocatios the bitchmap
-	current = (uint8_t*)memory_map;
-
-	//I am going to add this as a check for if null is the type that is returned!
-	if (pmm.bitmap == NULL) {
-    // Handle error - maybe halt the system
-    // For now, you could just return or loop forever but imma add a panic
-		kernel_panic("PMM: Failed to allocate bitmap - no suitable memory region found", 0x01 //the last line is just a error code but we can add panic.c
-    while(1) { asm volatile("hlt"); }
-}
-	
-	while (current < end) {
-		EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)current;
-
-		if (desc->Type == EfiConventionalMemory && desc->NumberOfPages * 4096 >= pmm.bitmap_size) {
-			pmm.bitmap = (uint64_t*)desc->PhysicalStart;
-			memset(pmm.bitmap, 0xFF, pmm.bitmap_size); // Marks all (condoms ;3) as used initially > you forgot a semicolon :3 -Xansi
-			break;
-		}
-		current += descriptor_size;
-	}
-
-	// Mark(iplier) free pages in the bitchmap
-	current = (uint8_t*)memory_map;
-	while  (current < end) {
-		EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)current;
-
-		if (desc->Type == EfiConventionalMemory){
-			for (uint64_t i =0; i < desc->NumberOfPages; i++){ //assuming this was not intended. set the for loop to i and not "1" this would basically just make it go forever if not changed:P
-				uint64_t page = (desc->PhysicalStart / 4096) + i;
-				pmm.bitmap[page / 64] &= ~(1ULL << (page % 64));
-			}
-		}
-		current += descriptor_size;
-	}
-
+// GDT (Global Descriptor Table) initialization
+void gdt_init(void) {
+    // TODO: Set up 64-bit GDT with code and data segments
+    // Already done in boot64.asm, but can be reloaded here if needed
+    // honestly GDT is kinda pointless in 64-bit mode but we need it anyway
 }
 
-
-
-void* pmm_alloc_page(void) {
-	spin_lock(&pmm.lock);
-
-	
-//for (uint64_t i = 0; i < pmm.bitmap_size * 8; i++) { 		//same here with a logic issue! Edit: I am going to swap out the pager for a dif iteration
-															//this way it will use this because its cleaner.
-	uint64_t num_pages = pmm.total_memory / 4096;
-	for (uint64_t i = 0; i < num_pages; i++) {
-	
-		uint64_t byte = i / 64;
-		uint64_t bit = i % 64;
-
-		if (!(pmm.bitmap[byte] & (1ULL << bit))) {
-			pmm.bitmap[byte] |= (1ULL << bit);
-			pmm.free_memory -= 4096;
-			spin_unlock(&pmm.lock);
-			return (void*)(i * 4096); 						//fixed typo XD
-		}
-	}
-	spin_unlock(&pmm.lock);
-	return NULL;
+// IDT (Interrupt Descriptor Table) initialization  
+void idt_init(void) {
+    // TODO: Set up IDT with 256 entries
+    // Install exception handlers (divide by zero, page fault, etc.)
+    // Install IRQ handlers
+    // this is where we tell the CPU what to do when shit hits the fan
 }
 
+// PIC (Programmable Interrupt Controller) initialization
+void pic_init(void) {
+    // TODO: Remap PIC to avoid conflicts with CPU exceptions
+    // Master PIC: IRQ 0-7 -> INT 32-39
+    // Slave PIC: IRQ 8-15 -> INT 40-47
+    // the PIC is old as fuck but we still need to configure it
+}
 
-// Virtual Memory Manager, if your too pussy to install on bare metal (even tho vm's have nothing to do with Virtual Memory Manager
-typedef struct  {
-	uint64_t* pml4; // Page Map Lvl 4, Congrats on the level up little buddy!
-} VirtualMemoryManager;
+// APIC (Advanced Programmable Interrupt Controller) initialization
+void apic_init(void) {
+    // TODO: Detect and initialize Local APIC and IO APIC
+    // Disable legacy PIC (bye bye old hardware)
+    // Configure APIC timer for preemptive multitasking
+    // APIC is way better than PIC but also way more complicated
+}
 
+// Scheduler initialization (multitasking go brrr)
+void scheduler_init(void) {
+    // TODO: Initialize task list
+    // Set up timer interrupt for context switching
+    // Create idle task (the task that does nothing when there's nothing to do)
+}
+
+// VMM (Virtual Memory Manager) initialization
 void vmm_init(void) {
-	// Allomacate PML table
-	uint64_t* pml = (uint64_t*)pmm_alloc_page();
-	memset(pml, 0, 4096);
-
-
-	// The first 4GB of the kernel is having an identity crisis (I don't blame them, although it a bit wierd.. Its a map identity crisis, but just be kind to them alright? They are going through a rough time)
-	for (uint64_t addr = 0; addr < 0x100000000; addr += 0x200000) {	// 2MB Pages, Still a long way till they find who they truley are.
-		vmm_map_page(pml, addr, addr, PAGE_PRESENT | PAGE_WRITE | PAGE_SIZE); //was missing an underscore.
-	}
-
-
-	// Just loading a bunch of papaer it seems like. > no its not, its a little harder than that.
-	asm volatile("mov %0, %%cr3" : : "r"(pml));
-	
-	uint64_t cr3_value;
-	asm volatile("mov %%cr3, %0" : "=r"(cr3_value));
-	asm volatile("mov %0, %%cr3" : : "r"(cr3_value));
-	//these last lines were outside of the function so i put them in for you. -Xansi
-
-}	
-
-
-void vmm_map_page(uint64_t* pml, uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) { //Flags?? more like.. FAGS LMAOOO :3
-	uint64_t pml_idx = (virtual_addr >> 39) & 0x1FF; // 39??!? Like Hatune Miku??!? WOAH
-	uint64_t pdpt_idx = (virtual_addr >> 30) & 0x1FF;
-	uint64_t pd_idx = (virtual_addr >> 21) & 0x1FF;
-	uint64_t pt_idx = (virtual_addr >> 12) & 0x1FF;
-
-
-	// Get or create the thingymabob
-	uint64_t* pdpt;
-    if (!(pml[pml_idx] & PAGE_PRESENT)) {
-        pdpt = (uint64_t*)pmm_alloc_page();
-        memset(pdpt, 0, 4096);
-        pml[pml_idx] = (uint64_t)pdpt | PAGE_PRESENT | PAGE_WRITE;
-    } else {
-        pdpt = (uint64_t*)(pml[pml_idx] & ~0xFFF);
+    // Allocate PML4 (Page Map Level 4) table
+    kernel_pml4 = (uint64_t*)0x1000;  // Temporary physical address (this is kinda sketchy but whatever)
+    
+    // Clear PML4 (zero it out so we start fresh)
+    for (int i = 0; i < 512; i++) {
+        kernel_pml4[i] = 0;
     }
-
-	// Get or create the POLICE DEPARTMENT WOOP WOOP DAS THE SOUND OF THE POLICE hehehehhe
-	uint64_t* pd;
-    	if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) {
-        	pd = (uint64_t*)pmm_alloc_page();
-        	memset(pd, 0, 4096);
-       	 	pdpt[pdpt_idx] = (uint64_t)pd | PAGE_PRESENT | PAGE_WRITE;
-    	} else {
-        	pd = (uint64_t*)(pdpt[pdpt_idx] & ~0xFFF);
-    	}
-
-
-	// Hanleing just a little amout of papaer, roughly 2mb
-	if (flags & PAGE_SIZE) {
-        	pd[pd_idx] = physical_addr | flags;
-	} else {
-		// sister i can't stand reading your comments -Xansi
-		uint64_t* pt;
-        	if (!(pd[pd_idx] & PAGE_PRESENT)) {
-            		pt = (uint64_t*)pmm_alloc_page();
-            		memset(pt, 0, 4096);
-            		pd[pd_idx] = (uint64_t)pt | PAGE_PRESENT | PAGE_WRITE;
-        	} else {
-            		pt = (uint64_t*)(pd[pd_idx] & ~0xFFF);
-        	}
-
-		// Map out the seven seas, well the four seas. Map 4KP page...
-		pt[pt_idx] = physical_addr | flags;
-	}
-
-
-	// Flush the Toilet Bowl (TLB) for this sheet of toilet paper (page)
-	asm volatile("invlpg (%0)" : : "r"(virtual_addr));
-
+    
+    // Identity map first 4GB for kernel and devices
+    // (virtual addr = physical addr, makes life easier)
+    for (uint64_t addr = 0; addr < 0x100000000; addr += 0x200000) {
+        // Using 2MB pages for simplicity (requires PAGE_SIZE flag)
+        vmm_map_page(kernel_pml4, addr, addr, PAGE_PRESENT | PAGE_WRITE | PAGE_SIZE); //was missing an underscore.
+    }
+    
+    // Load CR3 with new page table (tell the CPU about our fancy new page tables)
+    __asm__ volatile("mov %0, %%cr3" :: "r"(kernel_pml4));
 }
 
-void kernel_main(BootParams* params) {
-	// Initialise the physical memory manager. (I dont have anything funny for this 3:)
-	pmm_init(params->memory_map, params->memory_map_size, params->descriptor_size);
-
-	// Initialise Virtual memory
-	vmm_init();
-
-	// Set up GDT and IDT
-	gdt_init();
-	idt_init();
-
-	// Initialise  interrupt controller
-	pic_init();
-	apic_init();
-
-	// Init scheduler
-	scheduler_init();
-
-	// init Devce drivers
-	pci_scan();
-	usb_init();
-
-	// Init graphics
-	graphics_init(params->gop);
-
-	// Init filesystem
-	vfs_init();
-	initrd_load();
-
-	// Start firs user process
-	process_create("/sbin/init");
-
-	// Enable interuptions and start sceduling
-	sti();
-	scheduler_start();
+// Map a virtual page to physical page
+void vmm_map_page(uint64_t* pml, uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) { //Flags?? more like.. FAGS LMAOOO :3
+    (void)pml;
+    (void)virtual_addr;
+    (void)physical_addr;
+    (void)flags;
+    
+    // TODO: Implement 4-level page table mapping
+    // Extract indices from virtual address (bit twiddling time)
+    // Allocate intermediate tables if needed (PDPT, PD, PT)
+    // Set leaf entry to physical address with flags
+    // x86_64 paging is a pain in the ass btw
 }
 
-// Kernel for TouchOS developed by - Lexii (Floof<3) and Xansi
-//Things may change in the near future (they probably will)
+// PCI bus scanning (find all the hardware)
+void pci_scan(void) {
+    // TODO: Scan PCI configuration space
+    // Detect USB controllers (XHCI, EHCI)
+    // Detect graphics cards
+    // Detect network cards
+    // basically just poke at memory-mapped registers until we find stuff
+}
+
+// USB stack initialization
+void usb_init(void) {
+    // TODO: Initialize USB host controllers
+    // Enumerate USB devices (what's plugged in?)
+    // Load USB HID driver for touchscreen
+    // USB is a fucking nightmare protocol but we need it
+}
+
+// Graphics initialization
+void graphics_init(void* gop_ptr) {
+    (void)gop_ptr;
+    // TODO: Set up framebuffer from GOP
+    // Initialize double buffering (so we don't get screen tearing)
+    // Set up hardware acceleration if available (make it go zoom)
+}
+
+// Touchscreen driver initialization
+void touch_init(void) {
+    // TODO: Initialize Acer T230H touchscreen
+    // Set up USB HID protocol (Human Interface Device)
+    // Calibrate touch coordinates (make sure touches are accurate)
+    // Enable multi-touch support (pinch to zoom baby)
+}
+
+// Window Manager initialization
+void wm_init(void) {
+    // TODO: Create root window
+    // Initialize window list
+    // Set up touch gesture recognition (swipes, pinches, etc.)
+    // Create on-screen keyboard (pops up when you need it)
+}
+
+// VFS (Virtual File System) initialization
+void vfs_init(void) {
+    // TODO: Initialize VFS layer
+    // Mount root filesystem
+    // Set up device nodes (/dev)
+    // this is the abstraction layer so we can support multiple filesystems
+}
+
+// Package manager initialization
+void pkg_init(void) {
+    // TODO: Initialize package database
+    // Set up HTTP client for package downloads
+    // Configure package repository URL
+    // our own package manager instead of .deb because we're cool like that
+}
+
+// Main kernel entry point (called from boot64.asm in 64-bit mode)
+// RDI contains pointer to multiboot info struct
+void kernel_main(void* multiboot_info) {
+    (void)multiboot_info;
+
+    // Just halt - no serial, no memory init, nothing
+    while(1) {
+        __asm__ volatile("hlt");
+    }
+}
