@@ -2,7 +2,7 @@
 
 ## Overview
 
-TouchOS now includes a complete, Ubuntu-style installer system with a modern touch-friendly graphical interface.
+TouchOS now includes a complete installer system with a modern touch-friendly graphical interface.
 
 ## What's Included
 

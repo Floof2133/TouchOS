@@ -1,6 +1,6 @@
 # TouchOS USB Boot Instructions - Quick Start
 
-## What You Have
+## What You Need
 
 **touchos-installer.iso** - A 22MB bootable ISO that works on:
 - ✅ USB drives (dd to USB for bootable installer)
