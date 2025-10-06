@@ -121,7 +121,7 @@ setup_page_tables:
     mov [p2_table + ecx * 8], eax
     
     inc ecx
-    cmp ecx, 512       ; 512 entries * 2MB = 1GB mapped
+    cmp ecx, 256       ; 256 entries * 2MB = 512GB mapped
     jne .map_p2_table
     
     ret
