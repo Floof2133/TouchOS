@@ -1,4 +1,90 @@
 // wm/window_manager.c
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "../kernel/heap.h"
+
+// Missing type definitions
+typedef struct {
+    int x, y, width, height;
+} rect_t;
+
+typedef struct {
+    int x, y;
+} touch_point_t;
+
+typedef enum {
+    TOUCH_DOWN,
+    TOUCH_MOVE,
+    TOUCH_UP
+} touch_event_type_t;
+
+typedef enum {
+    INPUT_TYPE_TOUCHSCREEN,
+    INPUT_TYPE_MOUSE
+} input_type_t;
+
+typedef enum {
+    GESTURE_NONE,
+    GESTURE_TAP,
+    GESTURE_SWIPE,
+    GESTURE_PINCH
+} gesture_type_t;
+
+typedef enum {
+    EV_ABS,
+    EV_KEY
+} event_type_t;
+
+typedef enum {
+    ABS_MT_SLOT,
+    ABS_MT_TRACKING_ID,
+    ABS_MT_POSITION_X,
+    ABS_MT_POSITION_Y,
+    ABS_X,
+    ABS_Y
+} abs_code_t;
+
+typedef enum {
+    BTN_TOUCH,
+    KEY_SPACE
+} key_code_t;
+
+typedef struct {
+    event_type_t type;
+    uint32_t code;
+    int value;
+} input_event_t;
+
+typedef struct {
+    rect_t bounds;
+    char label;
+    key_code_t keycode;
+    bool is_pressed;
+} key_button_t;
+
+// Forward declarations
+static inline bool rect_contains(rect_t* r, int x, int y) {
+    return x >= r->x && x < r->x + r->width &&
+           y >= r->y && y < r->y + r->height;
+}
+
+static inline int abs(int x) { return x < 0 ? -x : x; }
+
+void input_register_handler(input_type_t type, void (*handler)(input_event_t*));
+void input_report_event(input_event_t* event);
+void input_sync(void);
+uint64_t get_system_time(void);
+void compositor_damage_region(int x, int y, int width, int height);
+void framebuffer_fill_rect(int x, int y, int width, int height, uint32_t color);
+void framebuffer_fill_rounded_rect(int x, int y, int width, int height, int radius, uint32_t color);
+void framebuffer_draw_rounded_rect(int x, int y, int width, int height, int radius, uint32_t color);
+void font_draw_string(const char* str, int x, int y, uint32_t color);
+key_code_t osk_char_to_keycode(char c);
+
+// Stub for framebuffer access
+static struct { uint32_t width, height; } fb = { 1920, 1080 };
+
 typedef struct window {
     int id;
     rect_t bounds;
@@ -55,6 +141,26 @@ typedef struct {
 
 static window_manager_t wm = {0};
 
+// Forward declarations for WM functions
+void wm_handle_touch(input_event_t* event);
+void wm_handle_mouse(input_event_t* event);
+void wm_handle_touch_down(int slot);
+void wm_handle_touch_up(int slot);
+void wm_handle_touch_move(int slot);
+void osk_init(void);
+void osk_handle_touch(int x, int y);
+void osk_show_for_window(window_t* win);
+void osk_render(void);
+window_t* wm_window_at_point(int x, int y);
+void wm_focus_window(window_t* win);
+bool wm_is_on_resize_edge(window_t* win, int x, int y);
+int wm_get_resize_edge(window_t* win, int x, int y);
+void wm_toggle_maximize(window_t* win);
+void wm_send_touch_to_window(window_t* win, int x, int y, touch_event_type_t type);
+bool wm_is_text_input_at(window_t* win, int x, int y);
+void wm_handle_pinch_gesture(void);
+void wm_resize_window_edge(window_t* win, int x, int y, int edge);
+
 void wm_init(void) {
     wm.windows = NULL;
     wm.focused_window = NULL;
@@ -89,6 +195,21 @@ void wm_handle_touch(input_event_t* event) {
             wm_handle_touch_move(slot);
         }
     }
+}
+
+void wm_handle_mouse(input_event_t* event) {
+    (void)event;
+    // TODO: Implement mouse handling
+}
+
+void wm_handle_touch_up(int slot) {
+    (void)slot;
+    // TODO: Implement touch up handling
+}
+
+void osk_handle_touch(int x, int y) {
+    (void)x; (void)y;
+    // TODO: Implement keyboard touch handling
 }
 
 void wm_handle_touch_down(int slot) {
@@ -288,5 +409,95 @@ void osk_render(void) {
         }
     }
 }
+// Stub implementations for missing functions
+void input_register_handler(input_type_t type, void (*handler)(input_event_t*)) {
+    (void)type; (void)handler;
+    // TODO: Implement input handler registration
+}
+
+void input_report_event(input_event_t* event) {
+    (void)event;
+    // TODO: Implement event reporting
+}
+
+void input_sync(void) {
+    // TODO: Implement sync
+}
+
+uint64_t get_system_time(void) {
+    // TODO: Implement system time
+    return 0;
+}
+
+void compositor_damage_region(int x, int y, int width, int height) {
+    (void)x; (void)y; (void)width; (void)height;
+    // TODO: Implement damage tracking
+}
+
+void framebuffer_fill_rect(int x, int y, int width, int height, uint32_t color) {
+    (void)x; (void)y; (void)width; (void)height; (void)color;
+    // TODO: Implement rectangle fill
+}
+
+void framebuffer_fill_rounded_rect(int x, int y, int width, int height, int radius, uint32_t color) {
+    (void)x; (void)y; (void)width; (void)height; (void)radius; (void)color;
+    // TODO: Implement rounded rectangle fill
+}
+
+void framebuffer_draw_rounded_rect(int x, int y, int width, int height, int radius, uint32_t color) {
+    (void)x; (void)y; (void)width; (void)height; (void)radius; (void)color;
+    // TODO: Implement rounded rectangle draw
+}
+
+void font_draw_string(const char* str, int x, int y, uint32_t color) {
+    (void)str; (void)x; (void)y; (void)color;
+    // TODO: Implement text rendering
+}
+
+key_code_t osk_char_to_keycode(char c) {
+    (void)c;
+    // TODO: Implement character to keycode conversion
+    return KEY_SPACE;
+}
+
+window_t* wm_window_at_point(int x, int y) {
+    (void)x; (void)y;
+    return NULL;
+}
+
+void wm_focus_window(window_t* win) {
+    (void)win;
+}
+
+bool wm_is_on_resize_edge(window_t* win, int x, int y) {
+    (void)win; (void)x; (void)y;
+    return false;
+}
+
+int wm_get_resize_edge(window_t* win, int x, int y) {
+    (void)win; (void)x; (void)y;
+    return 0;
+}
+
+void wm_toggle_maximize(window_t* win) {
+    (void)win;
+}
+
+void wm_send_touch_to_window(window_t* win, int x, int y, touch_event_type_t type) {
+    (void)win; (void)x; (void)y; (void)type;
+}
+
+bool wm_is_text_input_at(window_t* win, int x, int y) {
+    (void)win; (void)x; (void)y;
+    return false;
+}
+
+void wm_handle_pinch_gesture(void) {
+}
+
+void wm_resize_window_edge(window_t* win, int x, int y, int edge) {
+    (void)win; (void)x; (void)y; (void)edge;
+}
+
 // Rev1 Of the Window manager
 // Floof<3

@@ -44,7 +44,6 @@ typedef struct {
 
 // Global variables (yes I know globals are bad but this is a kernel so shut up)
 static uint64_t* kernel_pml4 = NULL;
-static uint64_t total_memory = 0;
 
 // Kernel panic handler (oh shit moment)
 void kernel_panic(const char* message, uint32_t error_code) {

@@ -58,7 +58,7 @@ void usb_touchscreen_probe(usb_device_t* device, uint8_t interface) {
         ts->cal_x_min = 150;
         ts->cal_x_max = 3946;
         ts->cal_y_min = 130;
-	ts->cal_y_max = 3966;
+        ts->cal_y_max = 3966;
         
         // Send vendor-specific initialization for Acer T230H
         uint8_t init_cmd[] = {0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};

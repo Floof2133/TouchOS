@@ -13,7 +13,8 @@ CFLAGS = -ffreestanding -fno-stack-protector -fno-pic -mno-red-zone -mcmodel=ker
 LDFLAGS = -n -T kernel/linker.ld
 
 # Object files (all the .o files we need to link together)
-OBJS = kernel/kernel.o kernel/pmm.o kernel/heap.o drivers/serial.o kernel/boot/boot64.o
+OBJS = kernel/kernel.o kernel/pmm.o kernel/heap.o \
+       drivers/serial.o kernel/boot/boot64.o
 
 # Default target (what happens when you just type 'make')
 all: kernel.elf
@@ -22,9 +23,17 @@ all: kernel.elf
 kernel/kernel.o: kernel/kernel.c drivers/serial.h
 	$(CC) $(CFLAGS) -c kernel/kernel.c -o kernel/kernel.o
 
-# Compile serial.c to serial.o  
+# Compile serial.c to serial.o
 drivers/serial.o: drivers/serial.c drivers/serial.h
 	$(CC) $(CFLAGS) -c drivers/serial.c -o drivers/serial.o
+
+# Compile pmm.c to pmm.o
+kernel/pmm.o: kernel/pmm.c kernel/pmm.h drivers/serial.h
+	$(CC) $(CFLAGS) -c kernel/pmm.c -o kernel/pmm.o
+
+# Compile heap.c to heap.o
+kernel/heap.o: kernel/heap.c kernel/heap.h kernel/pmm.h drivers/serial.h
+	$(CC) $(CFLAGS) -c kernel/heap.c -o kernel/heap.o
 
 # Assemble boot64.asm to boot64.o
 kernel/boot/boot64.o: kernel/boot/boot64.asm
@@ -36,7 +45,8 @@ kernel.elf: $(OBJS)
 
 # Clean up (delete all compiled files so we can rebuild from scratch)
 clean:
-	rm -f kernel/kernel.o drivers/serial.o kernel/boot/boot64.o kernel.elf
+	rm -f kernel/kernel.o kernel/pmm.o kernel/heap.o \
+	      drivers/serial.o kernel/boot/boot64.o kernel.elf
 
 # Phony targets (these aren't actual files, just commands)
 .PHONY: all clean

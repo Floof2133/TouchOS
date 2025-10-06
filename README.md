@@ -93,10 +93,9 @@ Also because:
 - [x] Kernel that _does_ have a kernel panic feature.
 - [x] Memory management (maybe)
 - [x] USB driver (pray for us)
-- [ ] Graphics that aren't VGA text mode
-- [ ] Window manager with big, touchable buttons
+- [x] Graphics that aren't VGA text mode
+- [x] Window manager with big, touchable buttons
 - [x] Virtual keyboard (smash those on-screen keys)
-- [ ] Package manager that handles .tpkg files
 - [ ] World domination (stretch goal)
 
 ## Contact
