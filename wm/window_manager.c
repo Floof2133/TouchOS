@@ -207,10 +207,169 @@ void wm_handle_touch_up(int slot) {
     // TODO: Implement touch up handling
 }
 
+/*
 void osk_handle_touch(int x, int y) {
     (void)x; (void)y;
     // TODO: Implement keyboard touch handling
 }
+
+//I am going to change how this whole thing works. edit: i've been here for an hour and this is what I have -Xansi
+*/
+
+void osk_handle_touch(int x, int y) {
+    // Find which key was touched
+    for (int i = 0; i < wm.osk.key_count; i++) {
+        key_button_t* key = &wm.osk.keys[i];
+        
+        if (rect_contains(&key->bounds, x, y)) {
+            // Mark key as pressed for visual feedback
+            key->is_pressed = true;
+            
+            // Create and send key press event
+            input_event_t key_down = {
+                .type = EV_KEY,
+                .code = key->keycode,
+                .value = 1  // 1 = pressed
+            };
+            
+            // Send to target window or system
+            if (wm.osk.target_window) {
+                // If there's a specific window, route input to it
+                input_report_event(&key_down);
+            }
+            
+            input_sync();
+            
+            // Schedule key release (you'd normally do this on touch up)
+            // For now, immediately send release
+            input_event_t key_up = {
+                .type = EV_KEY,
+                .code = key->keycode,
+                .value = 0  // 0 = released
+            };
+            input_report_event(&key_up);
+            input_sync();
+            
+            key->is_pressed = false;
+            
+            // Request redraw of keyboard
+            compositor_damage_region(wm.osk.bounds.x + key->bounds.x,
+                                   wm.osk.bounds.y + key->bounds.y,
+                                   key->bounds.width,
+                                   key->bounds.height);
+            
+            return;
+        }
+    }
+}
+
+// Implement the character to keycode conversion:
+key_code_t osk_char_to_keycode(char c) {
+    // Map characters to Linux input keycodes. or change and to your own however this is what I got.
+    // You'll need to expand this based on your needs
+    if (c >= 'a' && c <= 'z') {
+        return 30 + (c - 'a');  // KEY_A = 30, KEY_B = 31, etc.
+    }
+    if (c >= '0' && c <= '9') {
+        return 2 + (c - '0');   // KEY_1 = 2, KEY_2 = 3, etc.
+    }
+    
+    switch (c) {
+        case ' ': return KEY_SPACE;  // You defined this as BTN_TOUCH, need proper value
+        default: return 0;
+    }
+}
+
+// Update wm_handle_touch_up to handle keyboard key releases this became increasingly difficult by the minute going down:
+void wm_handle_touch_up(int slot) {
+    touch_point_t* touch = &wm.gesture_state.touches[slot];
+    
+    // Check if touch was on keyboard
+    if (wm.osk.visible && rect_contains(&wm.osk.bounds, touch->x, touch->y)) {
+        // Release any pressed keys
+        for (int i = 0; i < wm.osk.key_count; i++) {
+            if (wm.osk.keys[i].is_pressed) {
+                wm.osk.keys[i].is_pressed = false;
+                
+                input_event_t key_up = {
+                    .type = EV_KEY,
+                    .code = wm.osk.keys[i].keycode,
+                    .value = 0
+                };
+                input_report_event(&key_up);
+                input_sync();
+                
+                compositor_damage_region(
+                    wm.osk.bounds.x + wm.osk.keys[i].bounds.x,
+                    wm.osk.bounds.y + wm.osk.keys[i].bounds.y,
+                    wm.osk.keys[i].bounds.width,
+                    wm.osk.keys[i].bounds.height);
+            }
+        }
+        return;
+    }
+    
+    // Clear window touch state for efficiency
+    if (wm.focused_window) {
+        wm.focused_window->touch_state.is_being_dragged = false;
+        wm.focused_window->touch_state.resize_edge = 0;
+        
+        // Send touch up to application
+        wm_send_touch_to_window(wm.focused_window,
+                               touch->x - wm.focused_window->bounds.x,
+                               touch->y - wm.focused_window->bounds.y - wm.focused_window->titlebar_height,
+                               TOUCH_UP);
+    }
+}
+
+// You'll also need proper keycode definitions. Add these to your enums wherever they are floof!!!:
+/*
+typedef enum {
+    KEY_RESERVED = 0,
+    KEY_ESC = 1,
+    KEY_1 = 2,
+    KEY_2 = 3,
+    // ... continue up to KEY_9 = 10, KEY_0 = 11
+    
+    KEY_Q = 16,
+    KEY_W = 17,
+    KEY_E = 18,
+    KEY_R = 19,
+    KEY_T = 20,
+    KEY_Y = 21,
+    KEY_U = 22,
+    KEY_I = 23,
+    KEY_O = 24,
+    KEY_P = 25,
+    
+    KEY_A = 30,
+    KEY_S = 31,
+    KEY_D = 32,
+    KEY_F = 33,
+    KEY_G = 34,
+    KEY_H = 35,
+    KEY_J = 36,
+    KEY_K = 37,
+    KEY_L = 38,
+    
+    KEY_Z = 44,
+    KEY_X = 45,
+    KEY_C = 46,
+    KEY_V = 47,
+    KEY_B = 48,
+    KEY_N = 49,
+    KEY_M = 50,
+    
+    KEY_SPACE = 57,
+    KEY_BACKSPACE = 14,
+    KEY_ENTER = 28,
+    KEY_LEFTSHIFT = 42,
+    
+    BTN_TOUCH = 0x14a
+} key_code_t;
+Half of this was stack overflow help, and reddit searches but I believe it should work well I don't know if I am missing anything.
+*/
+
 
 void wm_handle_touch_down(int slot) {
     touch_point_t* touch = &wm.gesture_state.touches[slot];
