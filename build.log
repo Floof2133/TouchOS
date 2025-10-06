@@ -1,0 +1,86 @@
+=========================================
+TouchOS ISO Builder v1.0
+=========================================
+
+[1/8] Checking dependencies...
+  ✓ All dependencies found
+
+[2/8] Cleaning previous build...
+  ✓ Cleaned
+
+[3/8] Creating ISO structure...
+  ✓ Directory structure created
+
+[4/8] Building kernel...
+  ✓ Kernel ready: kernel.elf
+
+[5/8] Building userland applications...
+  Building libtouch...
+  Building live init...
+  Warning: Live init build had warnings (continuing anyway)
+  Building touch installer...
+  Warning: Installer build had warnings (continuing anyway)
+  Building package manager...
+  ✓ Userland built
+
+[6/8] Copying files to ISO...
+  ✓ Kernel copied
+  Copying userland...
+  ✓ Applications copied
+  Creating disk configuration...
+  ✓ Configuration created
+
+[7/8] Creating bootloader configuration...
+  ✓ Bootloader configured
+
+[8/8] Building bootable ISO...
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+xorriso : FAILURE : Not a known command:  '-isohybrid-mbr'
+
+xorriso : FAILURE : Not a known command:  '/usr/lib/ISOLINUX/isohdpfx.bin'
+
+xorriso : aborting : -abort_on 'FAILURE' encountered 'FAILURE'
+grub-mkrescue: error: `xorriso` invocation failed
+.
+  Retrying without isohybrid-mbr...
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+Drive current: -outdev 'stdio:touchos-installer.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data,  310g free
+Added to ISO image: directory '/'='/tmp/grub.l5Gsnz'
+xorriso : UPDATE :     674 files added in 1 seconds
+Added to ISO image: directory '/'='/home/lexii/TouchOS-build/iso-build'
+xorriso : UPDATE :     693 files added in 1 seconds
+xorriso : NOTE : Copying to System Area: 512 bytes from file '/usr/lib/grub/i386-pc/boot_hybrid.img'
+ISO image produced: 11041 sectors
+Written to medium : 11041 sectors at LBA 0
+Writing to 'stdio:touchos-installer.iso' completed successfully.
+
+  ✓ ISO created: touchos-installer.iso (22M)
+
+Creating checksum...
+  ✓ Checksum: touchos-installer.iso.md5
+
+=========================================
+Build Complete!
+=========================================
+
+ISO File:      touchos-installer.iso
+Size:          22M
+Checksum:      touchos-installer.iso.md5
+
+To test the ISO:
+  qemu-system-x86_64 -cdrom touchos-installer.iso -m 2G -enable-kvm
+
+To burn to USB:
+  sudo dd if=touchos-installer.iso of=/dev/sdX bs=4M status=progress
+  (Replace /dev/sdX with your USB device)
+
+To burn to CD/DVD:
+  brasero touchos-installer.iso
+  or
+  wodim -v -dao dev=/dev/sr0 touchos-installer.iso
+

@@ -1,0 +1,2 @@
+/dev/sda,8GB,Generic USB Flash Disk
+/dev/sdb,500GB,SATA Hard Drive

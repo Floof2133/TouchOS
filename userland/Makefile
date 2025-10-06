@@ -21,10 +21,11 @@ TOUCH_APPS = \
 	touch-settings \
 	touch-file-manager \
 	touch-terminal \
-	touch-system-monitor
+	touch-system-monitor \
+	touch-installer
 
 # Touch Desktop
-TOUCH_DESKTOP = touch-desktop
+TOUCH_DESKTOP = touch-launcher
 
 # Package Manager
 PKG_MANAGER_APPS = tpkg tpkg-build tpkg-touch-gui
@@ -79,11 +80,14 @@ touch-terminal: $(TOUCH_APPS_DIR)/terminal.c $(LIBTOUCH)
 touch-system-monitor: $(TOUCH_APPS_DIR)/system-monitor.c $(LIBTOUCH)
 	$(CC) $(CFLAGS) -o $@ $< $(LIBTOUCH) $(LDFLAGS)
 
+touch-installer: $(TOUCH_APPS_DIR)/installer.c $(LIBTOUCH)
+	$(CC) $(CFLAGS) -o $@ $< $(LIBTOUCH) $(LDFLAGS)
+
 # ============================================================================
 # Touch Desktop
 # ============================================================================
 
-touch-desktop: $(TOUCH_DESKTOP_DIR)/launcher.c $(LIBTOUCH)
+touch-launcher: $(TOUCH_DESKTOP_DIR)/touch-launcher.c $(LIBTOUCH)
 	$(CC) $(CFLAGS) -o $@ $< $(LIBTOUCH) $(LDFLAGS)
 
 # ============================================================================
