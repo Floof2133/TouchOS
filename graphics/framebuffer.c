@@ -73,33 +73,71 @@ typedef struct {
     int cursor_y;
 } framebuffer_t;
 
-static framebuffer_t fb = {0};
-
-void framebuffer_init(EFI_GRAPHICS_OUTPUT_PROTOCOL* gop) {
-    // TODO: Properly parse GOP structure when available
-    (void)gop;
-
-    // For now, use placeholder values
-    fb.address = NULL;  // Will be set by bootloader
-    fb.width = 1920;
-    fb.height = 1080;
-    fb.pitch = 1920 * 4;
-    fb.bpp = 32;
-
-    // Allocate backbuffer for double buffering
-    if (fb.address) {
-        size_t buffer_size = fb.height * fb.pitch;
-        fb.backbuffer = (uint32_t*)kmalloc(buffer_size);
-        if (fb.backbuffer) {
-            memcpy(fb.backbuffer, fb.address, buffer_size);
-        }
-
-        // Allocate cursor data
-        fb.cursor_data = kmalloc(64 * 64 * 4);  // 64x64 cursor
-        if (fb.cursor_data) {
-            framebuffer_create_default_cursor();
+        //actaul definition for mouse cursor that you can see this isn't terrible for basic use.
+        void framebuffer_create_default_cursor(void) {
+    if (!fb.cursor_data) return;
+    
+    for (int y = 0; y < 64; y++) {
+        for (int x = 0; x < 64; x++) {
+            uint32_t color = 0x00000000; // Transparent by default
+            
+            // Simple arrow shape
+            if (y < 20 && x < 12 && x <= y / 2) {
+                if (x == 0 || x == y / 2) {
+                    color = 0xFFFFFFFF; // White outline
+                } else {
+                    color = 0xFF000000; // Black fill.
+                }
+            }
+            
+            fb.cursor_data[y * 64 + x] = color;
         }
     }
+}
+
+//going to initialize it right after in the next function. pay attention.
+
+static framebuffer_t fb = {0};
+
+bool framebuffer_init(EFI_GRAPHICS_OUTPUT_PROTOCOL* gop) {
+    if (!gop || !gop->Mode || !gop->Mode->Info) {
+        return false;
+    }
+    
+    /* 
+    THIS IS THE CRITICAL FIX! Actually get the framebuffer address
+    which you previously had and issue with so it does exactly what it sounds like. -Xansi
+    */
+    fb.address = (uint32_t*)gop->Mode->FrameBufferBase;
+    fb.width = gop->Mode->Info->HorizontalResolution;
+    fb.height = gop->Mode->Info->VerticalResolution;
+    fb.pitch = gop->Mode->Info->PixelsPerScanLine * 4;
+    fb.bpp = 32;
+    
+    if (!fb.address) {
+        return false;
+    }
+    
+    // Allocate backbuffer
+    size_t buffer_size = fb.height * fb.pitch;
+    fb.backbuffer = (uint32_t*)kmalloc(buffer_size);
+    if (!fb.backbuffer) {
+        return false;
+    }
+    
+    memset(fb.backbuffer, 0, buffer_size);
+    
+    // Allocate cursor
+    fb.cursor_data = (uint32_t*)kmalloc(64 * 64 * 4);
+    if (!fb.cursor_data) {
+        kfree(fb.backbuffer);
+        return false;
+    }
+    
+    framebuffer_create_default_cursor();
+    compositor_init();
+    
+    return true;
 }
 
 // Compositor with damage tracking
@@ -203,3 +241,4 @@ void framebuffer_blit_alpha_sse2(uint32_t* dst, uint32_t* src,
     (void)dst; (void)src; (void)width; (void)height;
     (void)dst_stride; (void)src_stride;
 }
+
