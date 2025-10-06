@@ -193,7 +193,15 @@ void pkg_init(void) {
 void kernel_main(void* multiboot_info) {
     (void)multiboot_info;
 
-    // Just halt - no serial, no memory init, nothing
+    // Initialize serial for debugging
+    serial_init();
+
+    // Print boot message
+    serial_write("TouchOS Kernel Started!\n");
+    serial_write("Kernel successfully loaded by GRUB.\n");
+
+    // Halt
+    serial_write("Entering halt loop.\n");
     while(1) {
         __asm__ volatile("hlt");
     }

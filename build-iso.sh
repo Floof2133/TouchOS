@@ -197,21 +197,21 @@ menuentry "Install TouchOS" {
     echo "Loading TouchOS Installer..."
     echo "Initializing hardware and touch support..."
     set root=(cd)
-    linux /boot/kernel.elf installer touchos_init=/boot/live-init
+    multiboot /boot/kernel.elf
     boot
 }
 
 menuentry "Install TouchOS (Safe Mode - No Graphics)" {
     echo "Loading TouchOS Installer (Safe Mode)..."
     set root=(cd)
-    linux /boot/kernel.elf installer safe touchos_init=/boot/live-init
+    multiboot /boot/kernel.elf
     boot
 }
 
 menuentry "Try TouchOS (Live Mode)" {
     echo "Loading TouchOS Live Environment..."
     set root=(cd)
-    linux /boot/kernel.elf live touchos_init=/boot/live-init
+    multiboot /boot/kernel.elf
     boot
 }
 
@@ -234,25 +234,12 @@ echo "  ✓ Bootloader configured"
 echo ""
 echo "[8/8] Building bootable ISO..."
 grub-mkrescue -o "$ISO_NAME" "$ISO_DIR" \
-    -- -volid "$ISO_LABEL" -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+    -- -volid "$ISO_LABEL" \
     2>&1 | grep -v "warning: Unknown" || true
-
-if [ ! -f "$ISO_NAME" ]; then
-    echo "  Retrying without isohybrid-mbr..."
-    grub-mkrescue -o "$ISO_NAME" "$ISO_DIR" \
-        -- -volid "$ISO_LABEL" \
-        2>&1 | grep -v "warning: Unknown" || true
-fi
 
 if [ ! -f "$ISO_NAME" ]; then
     echo "  ERROR: ISO creation failed"
     exit 1
-fi
-
-# Make ISO hybrid bootable for USB (if isohybrid is available)
-if command -v isohybrid &> /dev/null; then
-    echo "  Making ISO hybrid bootable for USB..."
-    isohybrid "$ISO_NAME" 2>/dev/null || echo "  Note: isohybrid not available, ISO may not boot from USB on all systems"
 fi
 
 # Get ISO size

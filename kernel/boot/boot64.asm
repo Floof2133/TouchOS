@@ -54,9 +54,12 @@ _start:
     
     ; Load 64-bit GDT (need new segment descriptors for 64-bit)
     lgdt [gdt64.pointer]
-    
-    ; Far jump to 64-bit code (this actually switches us to 64-bit mode!)
-    jmp gdt64.code:long_mode_start
+
+    ; Far jump to 64-bit code (using manual encoding for compatibility)
+    ; Format: EA <4-byte offset> <2-byte selector>
+    db 0xEA  ; Far jump opcode
+    dd long_mode_start  ; 32-bit offset
+    dw 0x0008  ; Code segment selector (GDT entry 1)
     
 .no_long_mode:
     ; CPU doesn't support 64-bit mode (this shouldn't happen on Core i7 but just in case)
@@ -129,7 +132,7 @@ setup_page_tables:
 bits 64
 long_mode_start:
     ; We're now in 64-bit mode! Let's fucking gooooo
-    
+
     ; Load null segment selectors (64-bit doesn't really use segments but we still need to set them)
     mov ax, gdt64.data
     mov ss, ax
@@ -137,21 +140,27 @@ long_mode_start:
     mov es, ax
     mov fs, ax
     mov gs, ax
-    
+
     ; Set up stack pointer (64-bit version)
     mov rsp, stack_top
-    
+
+    ; DEBUG: Write to VGA text mode to show we made it to 64-bit mode
+    mov rax, 0xB8000  ; VGA text mode buffer
+    mov word [rax], 0x0F41  ; White 'A' on black background
+    mov word [rax+2], 0x0F42  ; 'B'
+    mov word [rax+4], 0x0F43  ; 'C'
+
     ; Clear BSS section (zero out all uninitialized global variables)
     mov rdi, bss_start
     mov rcx, bss_end
     sub rcx, rdi
     xor al, al
     rep stosb  ; Fast memset using x86 string operations
-    
+
     ; Call kernel main (finally! we made it!)
     ; RDI already has multiboot info pointer from earlier
     call kernel_main
-    
+
     ; If kernel returns (it shouldn't), halt forever
 .hang:
     hlt
