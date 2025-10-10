@@ -1,5 +1,5 @@
 # 🖐️ TouchOS
-
+# I WILL BE MIGRATING TO A LINUX BASED BUILD FOR THE TIME BEING!!
 > **A Touch-First Operating System Built from Scratch**
 
 TouchOS is a custom 64-bit x86_64 operating system designed specifically for touchscreen interfaces. Everything from the kernel to the graphical touch interface is written from scratch in C and Assembly.
